@@ -31,7 +31,7 @@ library(naniar)
 
 We will read the data into the wd_dev_indicators data frame. The preview of the data shows that the data set has 59 columns/variables. We will start by selecting only the variable of interest. 
 ```{r read data into data frame}
-wd_dev_indicators <- read_csv("C:/Users/RemoteUser/Documents/DATA607/Project2/World Dev Indicators/world_development_indicators_1.csv")
+wd_dev_indicators <- read_csv("https://raw.githubusercontent.com/hawa1983/Project-2/main/world_development_indicators_1.csv")
 
 wd_dev_indicators <- wd_dev_indicators %>%
   rename(
