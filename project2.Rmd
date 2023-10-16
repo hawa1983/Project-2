@@ -1,0 +1,303 @@
+---
+title: "Project 2"
+author: "Fomba Kassoh, Group Member: Souleymane Doumbia"
+date: "2023-10-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Introduction
+
+## World Development Indicators
+
+The here, we will use the world_development_indicators.csv dataset.
+
+## Load the relevant libraries 
+We start by installing the relevant packages and loading the libraries as below
+```{r load the required libraries}
+library(tidyverse)
+library(dplyr)
+library(RMySQL)
+library(DBI)
+library(readr)
+library(data.table)
+library(tidyr)
+library(naniar)
+```
+
+#1 Load and preview the data
+
+We will read the data into the wd_dev_indicators data frame. The preview of the data shows that the data set has 59 columns/variables. We will start by selecting only the variable of interest. 
+```{r read data into data frame}
+wd_dev_indicators <- read_csv("C:/Users/RemoteUser/Documents/DATA607/Project2/World Dev Indicators/world_development_indicators_1.csv")
+
+wd_dev_indicators <- wd_dev_indicators %>%
+  rename(
+    "1990" = `1990 [YR1990]`,
+    "2000" = `2000 [YR2000]`,
+    "2013" = `2013 [YR2013]`,
+    "2014" = `2014 [YR2014]`,
+    "2015" = `2015 [YR2015]`,
+    "2016" = `2016 [YR2016]`,
+    "2017" = `2017 [YR2017]`,
+    "2018" = `2018 [YR2018]`,
+    "2019" = `2019 [YR2019]`,
+    "2020" = `2020 [YR2020]`,
+    "2021" = `2021 [YR2021]`,
+    "2022" = `2022 [YR2022]`
+  )
+
+glimpse(wd_dev_indicators)
+```
+
+#2 Convert the Year columns to numeric type
+```{r convert chr to numeric data type}
+# Define a list of the columns you want to convert to numeric (in this case, columns from '1990' to '2022')
+columns_to_convert <- c('1990', '2000', '2013', '2014', '2015', '2016', '2017', '2018', '2019', '2020', '2021', '2022')
+
+# Use the mutate function to convert the specified columns to numeric
+wd_dev_indicators <- wd_dev_indicators %>%
+  mutate(across(all_of(columns_to_convert), as.numeric))
+```
+
+#3 Select the relevant data for our analysis
+
+In this analysis, we will be looking at economic and migration data. The countries of interest are United States, Canada, and Mexico. The analysis will also cover from 2013 to 2021
+
+```{r select Canada United States Mexico}
+
+us_mex_can_dev_indicators <- wd_dev_indicators |> 
+  filter(country %in% c("Canada", "Mexico", "United States"))
+
+us_mex_can_dev_indicators <- us_mex_can_dev_indicators %>%
+  select(-c("1990", "2000", "2022"))
+
+us_mex_can_dev_indicators
+```
+
+
+#4 Reshape the data
+Reshape the data from wide to long format using pivot_longer. Impute missing values. Then, reshape the data again to wide for analysis. 
+
+```{r}
+us_mex_can_dev_indicators_long <- us_mex_can_dev_indicators |>
+  pivot_longer(cols = c("2013":"2021"),
+               names_to = "year",
+               values_to = "value")
+
+
+us_mex_can_dev_indicators_long
+```
+
+```{r}
+# Reshape the data from long to wide format
+us_mex_can_dev_indicators_wider <- us_mex_can_dev_indicators_long |>
+  pivot_wider(names_from = `Series Name`, 
+              values_from = value
+  )
+
+# Convert to a tidy format
+data_tidy <- pivot_longer(us_mex_can_dev_indicators_wider, -c("country", "year"), names_to = "Variable", values_to = "Value")
+
+# Impute missing values using the mean
+data_tidy <- data_tidy %>% 
+  group_by(Variable) %>% 
+  mutate(Value = ifelse(is.na(Value), mean(Value, na.rm = TRUE), Value))
+
+# Convert back to the original format
+data_imputed <- pivot_wider(data_tidy, names_from = Variable, values_from = Value)
+
+# Print the imputed data
+glimpse(data_imputed)
+
+#write_csv(data_imputed, "C:/Users/RemoteUser/Documents/DATA607/Project2/tidy.csv")
+```
+
+# Population Analysis
+
+The annual population growth rate has been declining, indicating slower population growth over the years.
+```{r}
+data_imputed$year <- as.Date(paste0(data_imputed$year, "-01-01"))
+data_imputed$country <- as.factor(data_imputed$country)
+
+# Create a ggplot
+ggplot(data_imputed, aes(x = year, y =  `Population growth (annual %)`, color = country)) +
+  geom_line() +
+  labs(title = "Population Growth Rate Over Time by Country",
+       x = "year",
+       y = "Population growth") +
+  theme_minimal() +
+  scale_color_manual(values = c("Canada" = "blue", "Mexico" = "red", "United States" = "green"))
+```
+# Economic Development
+
+## GDP (current US$)
+The GDP of the three countries deccreased from 2013. It the decline gradually until 2020 when it saw a sharp decline due to the Corvid-19 pandemic. The GDP then rebounded sharply reflecting robust economic growth.
+
+```{r}
+
+# Create a ggplot
+ggplot(data_imputed, aes(x = year, y =  `GDP growth (annual %)`, color = country)) +
+  geom_line() +
+  labs(title = "GDP Growth Over Time by Country",
+       x = "year",
+       y = "GDP growth (annual %)") +
+  theme_minimal() +
+  scale_color_manual(values = c("Canada" = "blue", "Mexico" = "red", "United States" = "green"))
+```
+## GNI per capita, Atlas method (current US$)
+
+The GNI per capita for United States increased since 2013 showing rising income levels. The GNI per capita of Canada and Mexico has be declining since 2013 indicating decreasing income levels. 
+
+```{r}
+
+# Create a ggplot
+ggplot(data_imputed, aes(x = year, y =  `GNI per capita, Atlas method (current US$)`, color = country)) +
+  geom_line() +
+  labs(title = "GNI per capita Over Time by Country",
+       x = "year",
+       y = "GNI per capita") +
+  theme_minimal() +
+  scale_color_manual(values = c("Canada" = "blue", "Mexico" = "red", "United States" = "green"))
+```
+
+# Social Indicators
+
+## Life expectancy at birth, total (years): 
+The life expectancy in Canada has steadily increased since the year 2013, indicating improvements in healthcare and living conditions. Mexico and the United States have seen a decrease in life expectancy. All three countries saw a sharp decline in life expectancy between 2019 and 2021 most likely due to the Covid-19 pandemic.
+
+
+```{r}
+
+# Create a ggplot
+ggplot(data_imputed, aes(x = year, y =  `Life expectancy at birth, total (years)`, color = country)) +
+  geom_line() +
+  labs(title = "Life expectancy Over Time by Country",
+       x = "year",
+       y = "Life expectancy") +
+  theme_minimal() +
+  scale_color_manual(values = c("Canada" = "blue", "Mexico" = "red", "United States" = "green"))
+```
+
+
+## Fertility rate, total (births per woman) 
+
+The fertility rate of all three countries decreased, which suggests declining birth rates.
+
+```{r}
+
+# Create a ggplot
+ggplot(data_imputed, aes(x = year, y =  `Fertility rate, total (births per woman)`, color = country)) +
+  geom_line() +
+  labs(title = "Fertility rate, total (births per woman)",
+       x = "year",
+       y = "Fertility rate") +
+  theme_minimal() +
+  scale_color_manual(values = c("Canada" = "blue", "Mexico" = "red", "United States" = "green"))
+```
+# Economic and Financial Indicators
+
+## Tax revenue (% of GDP)
+Tax revenue as a percentage of GDP increased for the Canada and Mexico which might indicate a higher tax burden on the economy. Tax revenue as a percentage of GDP increase for the United States also decrease in 2017 to 2018. This may be due to tax laws.
+
+
+```{r}
+
+# Create a ggplot
+ggplot(data_imputed, aes(x = year, y =  `Tax revenue (% of GDP)`, color = country)) +
+  geom_line() +
+  labs(title = "Tax revenue Over Time by Country",
+       x = "year",
+       y = "Tax revenue (% of GDP)") +
+  theme_minimal() +
+  scale_color_manual(values = c("Canada" = "blue", "Mexico" = "red", "United States" = "green"))
+```
+
+## Foreign direct investment, net inflows (BoP, current US$)
+United States received substantial net foreign direct investment, indicating its attractiveness to foreign investors.Net foreign direct investment for Mexico and Canada has been declining.
+
+
+```{r}
+
+# Create a ggplot
+ggplot(data_imputed, aes(x = year, y =  `Foreign direct investment, net inflows (BoP, current US$)`, color = country)) +
+  geom_line() +
+  labs(title = "Foreign direct investment Over Time by Country",
+       x = "year",
+       y = "Foreign direct investment") +
+  theme_minimal() +
+  scale_color_manual(values = c("Canada" = "blue", "Mexico" = "red", "United States" = "green"))
+```
+
+# Education and Gender Parity
+##Primary completion rate, total (% of relevant age group)
+The primary completion rate is flat for Canada, declined but recovered for the United States, suggesting good access to primary education. Mexico has experienced a decline in primary completion rate.
+
+
+```{r}
+
+# Create a ggplot
+ggplot(data_imputed, aes(x = year, y =  `Primary completion rate, total (% of relevant age group)`, color = country)) +
+  geom_line() +
+  labs(title = "Primary completion rate, total (% of relevant age group)",
+       x = "year",
+       y = "Primary completion rate") +
+  theme_minimal() +
+  scale_color_manual(values = c("Canada" = "blue", "Mexico" = "red", "United States" = "green"))
+```
+# Infrastructure and Technology
+
+## Mobile cellular subscriptions (per 100 people)
+The mobile subscription rate has seen significant growth, reflecting high mobile phone usage.
+
+```{r}
+# Create a ggplot
+ggplot(data_imputed, aes(x = year, y =  `Mobile cellular subscriptions (per 100 people)`, color = country)) +
+  geom_line() +
+  labs(title = "Primary completion rate, total (% of relevant age group)",
+       x = "year",
+       y = "Primary completion rate") +
+  theme_minimal() +
+  scale_color_manual(values = c("Canada" = "blue", "Mexico" = "red", "United States" = "green"))
+```
+## High-technology exports (% of manufactured exports)
+High-tech exports as a percentage of total exports have remained relatively stable.
+
+```{r}
+# Create a ggplot
+ggplot(data_imputed, aes(x = year, y =  `High-technology exports (% of manufactured exports)`, color = country)) +
+  geom_line() +
+  labs(title = "Primary completion rate, total (% of relevant age group)",
+       x = "year",
+       y = "Primary completion rate") +
+  theme_minimal() +
+  scale_color_manual(values = c("Canada" = "blue", "Mexico" = "red", "United States" = "green"))
+```
+# Distribution of Wealth
+The income share heald by the bottom 20% have declined over the years, indicating a skewed distribution of wealth.
+
+
+```{r}
+# Create a ggplot
+ggplot(data_imputed, aes(x = year, y =  `Income share held by lowest 20%` , color = country)) +
+  geom_line() +
+  labs(title = "Income share held by lowest 20%",
+       x = "year",
+       y = "Income share") +
+  theme_minimal() +
+  scale_color_manual(values = c("Canada" = "blue", "Mexico" = "red", "United States" = "green"))
+```
+
+
+# Conclusion
+
+1. AMWEST provides the most flights and has the highest proportion of delayed flights for all destinations.
+2. Phoenix is the destination with the most arrivals but with the lowest proportion of delayed arrivals.
+3. San Francisco, though it comes third to last in arrivals flight has the highest proportion of delayed arrivals.
+4. For any given destination, ALASKA has the lowest proportion of delayed flights.
+
+
+
+t
