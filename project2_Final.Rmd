@@ -288,15 +288,3 @@ ggplot(data_imputed, aes(x = year, y =  `Income share held by lowest 20%` , colo
   theme_minimal() +
   scale_color_manual(values = c("Canada" = "blue", "Mexico" = "red", "United States" = "green"))
 ```
-
-
-# Conclusion
-
-1. AMWEST provides the most flights and has the highest proportion of delayed flights for all destinations.
-2. Phoenix is the destination with the most arrivals but with the lowest proportion of delayed arrivals.
-3. San Francisco, though it comes third to last in arrivals flight has the highest proportion of delayed arrivals.
-4. For any given destination, ALASKA has the lowest proportion of delayed flights.
-
-
-
-t
